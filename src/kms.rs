@@ -25,7 +25,7 @@ use rusqlite::{Error, Result};
 use std::vec::Vec;
 
 const PASSWORD_SALT: &str = "Matthew 5-13";
-const CONFIG_TYPE: &str = "sm";
+pub const CONFIG_TYPE: &str = "sm";
 
 pub struct KMS {
     pool: Pool<SqliteConnectionManager>,

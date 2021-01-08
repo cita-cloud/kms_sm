@@ -101,11 +101,12 @@ fn main() {
     }
 }
 
-use cita_cloud_proto::common::SimpleResponse;
+use cita_cloud_proto::common::{Empty, SimpleResponse};
 use cita_cloud_proto::kms::{
     kms_service_server::KmsService, kms_service_server::KmsServiceServer, GenerateKeyPairRequest,
-    GenerateKeyPairResponse, HashDataRequest, HashDataResponse, RecoverSignatureRequest,
-    RecoverSignatureResponse, SignMessageRequest, SignMessageResponse, VerifyDataHashRequest,
+    GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, HashDataResponse,
+    RecoverSignatureRequest, RecoverSignatureResponse, SignMessageRequest, SignMessageResponse,
+    VerifyDataHashRequest,
 };
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -126,6 +127,19 @@ impl KmsServer {
 
 #[tonic::async_trait]
 impl KmsService for KmsServer {
+    async fn get_crypto_info(
+        &self,
+        _request: Request<Empty>,
+    ) -> Result<Response<GetCryptoInfoResponse>, Status> {
+        debug!("get_crypto_info");
+        let reply = GetCryptoInfoResponse {
+            name: kms::CONFIG_TYPE.to_string(),
+            hash_len: crypto::HASH_BYTES_LEN as u32,
+            signature_len: crypto::SM2_SIGNATURE_BYTES_LEN as u32,
+            address_len: crypto::ADDR_BYTES_LEN as u32,
+        };
+        Ok(Response::new(reply))
+    }
     async fn generate_key_pair(
         &self,
         request: Request<GenerateKeyPairRequest>,

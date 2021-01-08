@@ -111,7 +111,7 @@ pub fn verify_data_hash(data: Vec<u8>, hash: Vec<u8>) -> bool {
     }
 }
 
-const ADDR_BYTES_LEN: usize = 20;
+pub const ADDR_BYTES_LEN: usize = 20;
 
 pub fn pk2address(pk: &[u8]) -> Vec<u8> {
     hash_data(pk)[HASH_BYTES_LEN - ADDR_BYTES_LEN..].to_vec()
