@@ -136,17 +136,6 @@ pub fn recover_signature(msg: Vec<u8>, signature: Vec<u8>) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kms::REVERSE_KEYS;
-
-    #[test]
-    fn aes_test() {
-        let password = "password";
-        let data = vec![1u8, 2, 3, 4, 5, 6, 7];
-
-        let cipher_message = aes(password, data.clone());
-        let decrypted_message = aes(password, cipher_message);
-        assert_eq!(data, decrypted_message);
-    }
 
     #[test]
     fn sm3_test() {
@@ -159,23 +148,10 @@ mod tests {
     }
 
     #[test]
-    fn keccak_test() {
-        let hash_empty: [u8; HASH_BYTES_LEN] = [
-            0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7,
-            0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04,
-            0x5d, 0x85, 0xa4, 0x70,
-        ];
-        assert_eq!(keccak_hash(&[]), hash_empty);
-    }
-
-    #[test]
     fn test_data_hash() {
         let data = vec![1u8, 2, 3, 4, 5, 6, 7];
-        for i in 1..REVERSE_KEYS {
-            let crypt_type = i as u32;
-            let hash = hash_data(crypt_type, &data);
-            assert!(verify_data_hash(crypt_type, data.clone(), hash));
-        }
+        let hash = hash_data(&data);
+        assert!(verify_data_hash(data.clone(), hash));
     }
 
     #[test]
@@ -187,14 +163,11 @@ mod tests {
             0x5d, 0x85, 0xa4, 0x70,
         ];
 
-        for i in 1..REVERSE_KEYS {
-            let crypt_type = i as u32;
-            let (pubkey, privkey) = generate_keypair(crypt_type);
-            let signature = sign_message(crypt_type, pubkey.clone(), privkey, data.to_vec());
-            assert_eq!(
-                recover_signature(crypt_type, data.to_vec(), signature),
-                Some(pubkey)
-            );
-        }
+        let (pubkey, privkey) = generate_keypair();
+        let signature = sign_message(pubkey.clone(), privkey, data.to_vec()).unwrap();
+        assert_eq!(
+            recover_signature(data.to_vec(), signature),
+            Some(pubkey)
+        );
     }
 }
