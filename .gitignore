@@ -61,3 +61,5 @@ logs/
 *.db
 
 key_file
+
+Cargo.lock
