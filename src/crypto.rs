@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rand::Rng;
+
 pub fn encrypt(password: &str, data: Vec<u8>) -> Vec<u8> {
     let hash = sm3_hash(password.as_bytes());
     let key = hash[0..16].to_owned();
@@ -45,49 +47,37 @@ const SM2_PRIVKEY_BYTES_LEN: usize = 32;
 pub const SM2_SIGNATURE_BYTES_LEN: usize = 128;
 
 fn sm2_gen_keypair() -> ([u8; SM2_PUBKEY_BYTES_LEN], [u8; SM2_PRIVKEY_BYTES_LEN]) {
-    let ctx = libsm::sm2::signature::SigCtx::new();
-    let (pk, sk) = ctx.new_keypair();
+    let mut private_key = [0; SM2_PRIVKEY_BYTES_LEN];
+    let mut public_key = [0u8; SM2_PUBKEY_BYTES_LEN];
 
-    let mut pubkey = [0u8; SM2_PUBKEY_BYTES_LEN];
-    pubkey.copy_from_slice(&ctx.serialize_pubkey(&pk, false)[1..]);
+    rand::thread_rng().fill_bytes(&mut private_key);
+    let key_pair = efficient_sm2::KeyPair::new(&private_key).unwrap();
+    let pubkey = key_pair.public_key();
+    public_key.copy_from_slice(&pubkey.bytes_less_safe()[1..]);
 
-    let mut privkey = [0u8; SM2_PRIVKEY_BYTES_LEN];
-    privkey.copy_from_slice(&ctx.serialize_seckey(&sk)[..]);
-
-    (pubkey, privkey)
+    (public_key, private_key)
 }
 
 fn sm2_sign(pubkey: &[u8], privkey: &[u8], msg: &[u8]) -> [u8; SM2_SIGNATURE_BYTES_LEN] {
-    let ctx = libsm::sm2::signature::SigCtx::new();
-
-    let sk = ctx.load_seckey(privkey).unwrap();
-
-    let signature = ctx.sign_raw(&msg, &sk);
+    let key_pair = efficient_sm2::KeyPair::new(privkey).unwrap();
+    let sig = key_pair.sign(msg).unwrap();
 
     let mut sig_bytes = [0u8; SM2_SIGNATURE_BYTES_LEN];
-    let r_bytes = signature.get_r().to_bytes_be();
-    let s_bytes = signature.get_s().to_bytes_be();
-
-    sig_bytes[32 - r_bytes.len()..32].copy_from_slice(&r_bytes[..]);
-    sig_bytes[64 - s_bytes.len()..64].copy_from_slice(&s_bytes[..]);
+    sig_bytes[..32].copy_from_slice(&sig.r());
+    sig_bytes[32..64].copy_from_slice(&sig.s());
     sig_bytes[64..].copy_from_slice(pubkey);
     sig_bytes
 }
 
 fn sm2_recover(signature: &[u8], message: &[u8]) -> Option<Vec<u8>> {
-    let ctx = libsm::sm2::signature::SigCtx::new();
     let r = &signature[0..32];
     let s = &signature[32..64];
     let pk = &signature[64..];
 
-    let sig = libsm::sm2::signature::Signature::new(r, s);
+    let signature = efficient_sm2::Signature::new(r, s).unwrap();
+    let public_key = efficient_sm2::PublicKey::new(&pk[..32], &pk[32..]);
 
-    let mut pk_full = [0u8; SM2_PUBKEY_BYTES_LEN + 1];
-    pk_full[0] = 4;
-    pk_full[1..].copy_from_slice(pk);
-    let ppk = ctx.load_pubkey(&pk_full[..]).unwrap();
-
-    if ctx.verify_raw(&message, &ppk, &sig) {
+    if signature.verify(&public_key, message).is_ok() {
         Some(pk.to_vec())
     } else {
         None
@@ -165,9 +155,6 @@ mod tests {
 
         let (pubkey, privkey) = generate_keypair();
         let signature = sign_message(pubkey.clone(), privkey, data.to_vec()).unwrap();
-        assert_eq!(
-            recover_signature(data.to_vec(), signature),
-            Some(pubkey)
-        );
+        assert_eq!(recover_signature(data.to_vec(), signature), Some(pubkey));
     }
 }
