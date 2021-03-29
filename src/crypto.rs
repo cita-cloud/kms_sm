@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rand::Rng;
+use rand::RngCore;
 
 pub fn encrypt(password: &str, data: Vec<u8>) -> Vec<u8> {
     let hash = sm3_hash(password.as_bytes());
