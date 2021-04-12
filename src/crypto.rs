@@ -60,7 +60,9 @@ fn sm2_gen_keypair() -> ([u8; SM2_PUBKEY_BYTES_LEN], [u8; SM2_PRIVKEY_BYTES_LEN]
 
 fn sm2_sign(pubkey: &[u8], privkey: &[u8], msg: &[u8]) -> [u8; SM2_SIGNATURE_BYTES_LEN] {
     let key_pair = efficient_sm2::KeyPair::new(privkey).unwrap();
-    let sig = key_pair.sign(msg).unwrap();
+    let sig = key_pair
+        .sign_digest(&mut efficient_sm2::DefaultRand(rand::thread_rng()), msg)
+        .unwrap();
 
     let mut sig_bytes = [0u8; SM2_SIGNATURE_BYTES_LEN];
     sig_bytes[..32].copy_from_slice(&sig.r());
@@ -77,7 +79,7 @@ fn sm2_recover(signature: &[u8], message: &[u8]) -> Option<Vec<u8>> {
     let signature = efficient_sm2::Signature::new(r, s).unwrap();
     let public_key = efficient_sm2::PublicKey::new(&pk[..32], &pk[32..]);
 
-    if signature.verify(&public_key, message).is_ok() {
+    if signature.verify_digest(&public_key, message).is_ok() {
         Some(pk.to_vec())
     } else {
         None
