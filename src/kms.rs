@@ -20,7 +20,6 @@ use log::info;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::types::ToSql;
-use rusqlite::NO_PARAMS;
 use rusqlite::{Error, Result};
 use std::vec::Vec;
 
@@ -35,7 +34,7 @@ pub struct KMS {
 fn get_config(pool: Pool<SqliteConnectionManager>) -> Result<(Vec<u8>, String)> {
     let conn = pool.get().unwrap();
     let mut stmt = conn.prepare("SELECT password, config_type  FROM config WHERE id = ?")?;
-    let mut rows = stmt.query(&[1])?;
+    let mut rows = stmt.query([1])?;
 
     if let Some(row) = rows.next()? {
         let password = row.get(0)?;
@@ -62,7 +61,7 @@ impl KMS {
              password BLOB,
              config_type TEXT
          )",
-            NO_PARAMS,
+            [],
         )
         .unwrap();
 
@@ -74,7 +73,7 @@ impl KMS {
              privkey BLOB,
              description TEXT
          )",
-            NO_PARAMS,
+            [],
         )
         .unwrap();
 
@@ -167,7 +166,7 @@ impl KMS {
     fn get_account(&self, key_id: u64) -> Result<(Vec<u8>, Vec<u8>)> {
         let conn = self.pool.get().unwrap();
         let mut stmt = conn.prepare("SELECT pubkey, privkey FROM account WHERE id = ?")?;
-        let mut rows = stmt.query(&[key_id as i64])?;
+        let mut rows = stmt.query([key_id])?;
 
         if let Some(row) = rows.next()? {
             let pubkey = row.get(0)?;
