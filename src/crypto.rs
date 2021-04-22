@@ -74,14 +74,13 @@ fn sm2_recover(signature: &[u8], message: &[u8]) -> Option<Vec<u8>> {
     let s = &signature[32..64];
     let pk = &signature[64..];
 
-    let signature = efficient_sm2::Signature::new(r, s).unwrap();
     let public_key = efficient_sm2::PublicKey::new(&pk[..32], &pk[32..]);
-
-    if signature.verify(&public_key, message).is_ok() {
-        Some(pk.to_vec())
-    } else {
-        None
+    if let Ok(signature) = efficient_sm2::Signature::new(r, s) {
+        if signature.verify(&public_key, message).is_ok() {
+            return Some(pk.to_vec());
+        }
     }
+    None
 }
 
 pub fn generate_keypair() -> (Vec<u8>, Vec<u8>) {
