@@ -116,7 +116,7 @@ pub fn sign_message(pubkey: Vec<u8>, privkey: Vec<u8>, msg: Vec<u8>) -> Option<V
 }
 
 pub fn recover_signature(msg: Vec<u8>, signature: Vec<u8>) -> Option<Vec<u8>> {
-    if signature.len() != SM2_SIGNATURE_BYTES_LEN {
+    if signature.len() != SM2_SIGNATURE_BYTES_LEN || msg.len() != HASH_BYTES_LEN {
         None
     } else {
         sm2_recover(&signature, &msg)

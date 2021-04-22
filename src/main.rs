@@ -140,6 +140,8 @@ impl KmsService for KmsServer {
         };
         Ok(Response::new(reply))
     }
+
+    // Err code maybe return: aborted
     async fn generate_key_pair(
         &self,
         request: Request<GenerateKeyPairRequest>,
@@ -150,13 +152,10 @@ impl KmsService for KmsServer {
         let description = req.description;
 
         let kms = self.kms.read().await;
-        kms.generate_key_pair(description).map_or_else(
-            |e| Err(Status::internal(e)),
-            |(key_id, address)| {
-                let reply = GenerateKeyPairResponse { key_id, address };
-                Ok(Response::new(reply))
-            },
-        )
+        kms.generate_key_pair(description).map(|(key_id, address)| {
+            let reply = GenerateKeyPairResponse { key_id, address };
+            Response::new(reply)
+        })
     }
 
     async fn hash_data(
@@ -169,13 +168,10 @@ impl KmsService for KmsServer {
         let data = req.data;
 
         let kms = self.kms.read().await;
-        kms.hash_date(&data).map_or_else(
-            |e| Err(Status::internal(e)),
-            |hash| {
-                let reply = HashDataResponse { hash };
-                Ok(Response::new(reply))
-            },
-        )
+        let reply = HashDataResponse {
+            hash: kms.hash_date(&data),
+        };
+        Ok(Response::new(reply))
     }
 
     async fn verify_data_hash(
@@ -189,15 +185,13 @@ impl KmsService for KmsServer {
         let hash = req.hash;
 
         let kms = self.kms.read().await;
-        kms.verify_data_hash(data, hash).map_or_else(
-            |e| Err(Status::internal(e)),
-            |is_success| {
-                let reply = SimpleResponse { is_success };
-                Ok(Response::new(reply))
-            },
-        )
+        let reply = SimpleResponse {
+            is_success: kms.verify_data_hash(data, hash),
+        };
+        Ok(Response::new(reply))
     }
 
+    // Err code maybe return: aborted/invalid_argument
     async fn sign_message(
         &self,
         request: Request<SignMessageRequest>,
@@ -208,22 +202,14 @@ impl KmsService for KmsServer {
         let key_id = req.key_id;
         let msg = req.msg;
 
-        // for mock test
-        if key_id == 0 {
-            let reply = SignMessageResponse { signature: vec![] };
-            return Ok(Response::new(reply));
-        }
-
         let kms = self.kms.read().await;
-        kms.sign_message(key_id, msg).map_or_else(
-            |e| Err(Status::internal(e)),
-            |signature| {
-                let reply = SignMessageResponse { signature };
-                Ok(Response::new(reply))
-            },
-        )
+        kms.sign_message(key_id, msg).map(|signature| {
+            let reply = SignMessageResponse { signature };
+            Response::new(reply)
+        })
     }
 
+    // Err code maybe return: invalid_argument
     async fn recover_signature(
         &self,
         request: Request<RecoverSignatureRequest>,
@@ -235,13 +221,10 @@ impl KmsService for KmsServer {
         let signature = req.signature;
 
         let kms = self.kms.read().await;
-        kms.recover_signature(msg, signature).map_or_else(
-            |e| Err(Status::internal(e)),
-            |address| {
-                let reply = RecoverSignatureResponse { address };
-                Ok(Response::new(reply))
-            },
-        )
+        kms.recover_signature(msg, signature).map(|address| {
+            let reply = RecoverSignatureResponse { address };
+            Response::new(reply)
+        })
     }
 }
 
