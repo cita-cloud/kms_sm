@@ -1,6 +1,6 @@
 [package]
 name = "kms"
-version = "0.1.0"
+version = "5.0.0"
 authors = ["Rivtower Technologies <contact@rivtower.com>"]
 license = "Apache-2.0"
 edition = "2018"
@@ -23,3 +23,11 @@ rpassword = "*"
 libsm = "0.3.0"
 efficient-sm2 = { git = "https://github.com/Pencil-Yao/efficient-sm2" }
 rand = "*"
+
+[profile.release.package."*"]
+# Set the default for dependencies.
+debug = 0
+
+[profile.release]
+# Add debug info -- line tables only
+debug = 1

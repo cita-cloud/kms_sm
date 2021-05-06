@@ -29,7 +29,7 @@ pub const CONFIG_TYPE: &str = "sm";
 
 pub struct KMS {
     pool: Pool<SqliteConnectionManager>,
-    password: String,
+    password: Vec<u8>,
 }
 
 fn get_config(pool: Pool<SqliteConnectionManager>) -> Result<(Vec<u8>, String)> {
@@ -87,22 +87,21 @@ impl KMS {
             None => rpassword::read_password_from_tty(Some("Password: ")).unwrap(),
         };
 
-        let kms = KMS {
-            pool: pool.clone(),
-            password: password.clone(),
-        };
-
-        if let Ok((pwd_hash, config_type)) = get_config(pool) {
+        if let Ok((pwd_hash, config_type)) = get_config(pool.clone()) {
             info!("verify config");
             // password add salt
             password.push_str(PASSWORD_SALT);
-            if !verify_data_hash(password.as_bytes().to_vec(), pwd_hash) {
+            if !verify_data_hash(password.as_bytes().to_vec(), pwd_hash.clone()) {
                 panic!("password mismatch!");
             }
             if config_type != CONFIG_TYPE {
                 panic!("config_type is not match!");
             }
             println!("config check ok!");
+            KMS {
+                pool,
+                password: pwd_hash,
+            }
         } else {
             info!("store new config");
             // password add salt
@@ -114,9 +113,11 @@ impl KMS {
                     &[&1, &pwd_hash as &dyn ToSql, &CONFIG_TYPE],
                 )
                 .unwrap();
+            KMS {
+                pool,
+                password: pwd_hash,
+            }
         }
-
-        kms
     }
 
     fn insert_account(
