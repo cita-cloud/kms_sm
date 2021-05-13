@@ -20,7 +20,7 @@ r2d2 = "*"
 r2d2_sqlite = "*"
 rusqlite = "*"
 rpassword = "*"
-libsm = "0.3.0"
+libsm = "0.4.0"
 efficient-sm2 = { git = "https://github.com/Pencil-Yao/efficient-sm2" }
 rand = "*"
 
