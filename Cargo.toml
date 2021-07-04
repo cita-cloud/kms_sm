@@ -22,7 +22,7 @@ rusqlite = "*"
 rpassword = "*"
 libsm = "0.4.0"
 efficient-sm2 = { git = "https://github.com/Pencil-Yao/efficient-sm2" }
-rand = "*"
+rand = "0.8"
 
 [profile.release.package."*"]
 # Set the default for dependencies.

@@ -97,7 +97,7 @@ impl KMS {
             if config_type != CONFIG_TYPE {
                 panic!("config_type is not match!");
             }
-            println!("config check ok!");
+            info!("config check ok!");
             KMS {
                 pool,
                 password: pwd_hash,
