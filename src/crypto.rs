@@ -258,7 +258,7 @@ mod tests {
     fn test_data_hash() {
         let data = vec![1u8, 2, 3, 4, 5, 6, 7];
         let hash = hash_data(&data);
-        assert!(verify_data_hash(&data, &hash));
+        assert!(verify_data_hash(&data, &hash).is_ok());
     }
 
     #[test]
@@ -272,6 +272,6 @@ mod tests {
 
         let (pubkey, privkey) = generate_keypair().unwrap();
         let signature = sign_message(&pubkey, &privkey, &data).unwrap();
-        assert_eq!(recover_signature(&data, &signature), Some(pubkey));
+        assert_eq!(recover_signature(&data, &signature), Ok(pubkey));
     }
 }
