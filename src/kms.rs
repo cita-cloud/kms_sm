@@ -16,19 +16,17 @@ use crate::crypto::{
     decrypt, encrypt, generate_keypair, hash_data, pk2address, recover_signature, sign_message,
     verify_data_hash,
 };
-use log::info;
+use log::{info, warn};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::types::ToSql;
 use rusqlite::{Error, Result};
-use std::vec::Vec;
-use tonic::Status;
 use status_code::StatusCode;
 
 const PASSWORD_SALT: &str = "Matthew 5-13";
 pub const CONFIG_TYPE: &str = "sm";
 
-pub struct KMS {
+pub struct Kms {
     pool: Pool<SqliteConnectionManager>,
     password: Vec<u8>,
 }
@@ -49,7 +47,7 @@ fn get_config(pool: Pool<SqliteConnectionManager>) -> Result<(Vec<u8>, String)> 
     }
 }
 
-impl KMS {
+impl Kms {
     pub fn new(db_path: &str, key_file: &Option<String>) -> Self {
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::new(manager).unwrap();
@@ -92,14 +90,14 @@ impl KMS {
             info!("verify config");
             // password add salt
             password.push_str(PASSWORD_SALT);
-            if !verify_data_hash(password.as_bytes().to_vec(), pwd_hash.clone()) {
+            if verify_data_hash(password.as_bytes(), &pwd_hash).is_err() {
                 panic!("password mismatch!");
             }
             if config_type != CONFIG_TYPE {
                 panic!("config_type is not match!");
             }
             info!("config check ok!");
-            KMS {
+            Kms {
                 pool,
                 password: pwd_hash,
             }
@@ -114,7 +112,7 @@ impl KMS {
                     &[&1, &pwd_hash as &dyn ToSql, &CONFIG_TYPE],
                 )
                 .unwrap();
-            KMS {
+            Kms {
                 pool,
                 password: pwd_hash,
             }
@@ -126,29 +124,27 @@ impl KMS {
         pubkey: Vec<u8>,
         privkey: Vec<u8>,
         description: String,
-    ) -> Result<u64, Status> {
+    ) -> Result<u64, StatusCode> {
         let conn = self.pool.get().unwrap();
 
-        let ret = conn.execute(
+        match conn.execute(
             "INSERT INTO account (pubkey, privkey, description) values (?1, ?2, ?3)",
             &[
                 &pubkey as &dyn ToSql,
                 &privkey as &dyn ToSql,
                 &description as &dyn ToSql,
             ],
-        );
-
-        if let Err(e) = ret {
-            let err_str = format!("insert key failed: {:?}", e);
-            Err(Status::aborted(err_str))
-        } else {
-            let latest_id = conn.last_insert_rowid();
-            Ok(latest_id as u64)
+        ) {
+            Err(e) => {
+                warn!("insert_account failed: {:?}", e);
+                Err(StatusCode::InsertAccountError)
+            }
+            Ok(_) => Ok(conn.last_insert_rowid() as u64),
         }
     }
 
-    pub fn generate_key_pair(&self, description: String) -> Result<(u64, Vec<u8>), Status> {
-        let (pk, sk) = generate_keypair();
+    pub fn generate_key_pair(&self, description: String) -> Result<(u64, Vec<u8>), StatusCode> {
+        let (pk, sk) = generate_keypair()?;
         let encrypted_sk = encrypt(&self.password, sk);
         self.insert_account(pk.clone(), encrypted_sk, description)
             .map(|key_id| {
@@ -161,8 +157,8 @@ impl KMS {
         hash_data(data)
     }
 
-    pub fn verify_data_hash(&self, data: Vec<u8>, hash: Vec<u8>) -> StatusCode {
-        verify_data_hash(data, hash)
+    pub fn verify_data_hash(&self, data: &[u8], hash: &[u8]) -> StatusCode {
+        verify_data_hash(data, hash).map_or_else(|e| e, |_| StatusCode::Success)
     }
 
     fn get_account(&self, key_id: u64) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -181,26 +177,18 @@ impl KMS {
         }
     }
 
-    pub fn sign_message(&self, key_id: u64, msg: Vec<u8>) -> Result<Vec<u8>, StatusCode> {
-        if let Ok((pubkey, privkey)) = self.get_account(key_id) {
-            if let Some(signature) = sign_message(pubkey, privkey, msg) {
-                Ok(signature)
-            } else {
-                Err(Status::invalid_argument("Sign msg failed".to_owned()))
+    pub fn sign_message(&self, key_id: u64, msg: &[u8]) -> Result<Vec<u8>, StatusCode> {
+        match self.get_account(key_id) {
+            Ok((pubkey, privkey)) => sign_message(&pubkey, &privkey, msg),
+            Err(err) => {
+                warn!("sign_message get account(id: {}) failed: {:?}", key_id, err);
+                Err(StatusCode::NotFoundAccount)
             }
-        } else {
-            Err(Status::aborted("Can't find key id!".to_owned()))
         }
     }
 
-    pub fn recover_signature(&self, msg: Vec<u8>, signature: Vec<u8>) -> Result<Vec<u8>, Status> {
-        if let Some(pubkey) = recover_signature(msg, signature) {
-            let address = pk2address(&pubkey);
-            Ok(address)
-        } else {
-            Err(Status::invalid_argument(
-                "Recover signature failed".to_owned(),
-            ))
-        }
+    pub fn recover_signature(&self, msg: &[u8], signature: &[u8]) -> Result<Vec<u8>, StatusCode> {
+        let pub_key = recover_signature(msg, signature)?;
+        Ok(pk2address(&pub_key))
     }
 }
