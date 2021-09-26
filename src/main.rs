@@ -101,7 +101,7 @@ fn main() {
     }
 }
 
-use cita_cloud_proto::common::{Empty, SimpleResponse};
+use cita_cloud_proto::common::{Empty, SimpleResponse, HashRespond, Hash};
 use cita_cloud_proto::kms::{
     kms_service_server::KmsService, kms_service_server::KmsServiceServer, GenerateKeyPairRequest,
     GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, HashDataResponse,
@@ -113,6 +113,8 @@ use tonic::{transport::Server, Request, Response, Status};
 use kms::KMS;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use status_code::StatusCode;
+use cita_cloud_proto::blockchain::RawTransactions;
 
 // grpc server of RPC
 pub struct KmsServer {
@@ -133,6 +135,7 @@ impl KmsService for KmsServer {
     ) -> Result<Response<GetCryptoInfoResponse>, Status> {
         debug!("get_crypto_info");
         let reply = GetCryptoInfoResponse {
+            status: Some(StatusCode::Success.into()),
             name: kms::CONFIG_TYPE.to_string(),
             hash_len: crypto::HASH_BYTES_LEN as u32,
             signature_len: crypto::SM2_SIGNATURE_BYTES_LEN as u32,
@@ -161,15 +164,18 @@ impl KmsService for KmsServer {
     async fn hash_data(
         &self,
         request: Request<HashDataRequest>,
-    ) -> Result<Response<HashDataResponse>, Status> {
+    ) -> Result<Response<HashRespond>, Status> {
         debug!("hash_date request: {:?}", request);
 
         let req = request.into_inner();
         let data = req.data;
 
         let kms = self.kms.read().await;
-        let reply = HashDataResponse {
-            hash: kms.hash_date(&data),
+        let reply = HashRespond {
+            status: Some(StatusCode::Success.into()),
+            hash: Some(Hash{
+                hash: kms.hash_date(&data)
+            }),
         };
         Ok(Response::new(reply))
     }
@@ -177,7 +183,7 @@ impl KmsService for KmsServer {
     async fn verify_data_hash(
         &self,
         request: Request<VerifyDataHashRequest>,
-    ) -> Result<Response<SimpleResponse>, Status> {
+    ) -> Result<Response<cita_cloud_proto::common::StatusCode>, Status> {
         debug!("verify_data_hash request: {:?}", request);
 
         let req = request.into_inner();
@@ -185,10 +191,7 @@ impl KmsService for KmsServer {
         let hash = req.hash;
 
         let kms = self.kms.read().await;
-        let reply = SimpleResponse {
-            is_success: kms.verify_data_hash(data, hash),
-        };
-        Ok(Response::new(reply))
+        Ok(kms.verify_data_hash(data, hash).into())
     }
 
     // Err code maybe return: aborted/invalid_argument
@@ -225,6 +228,10 @@ impl KmsService for KmsServer {
             let reply = RecoverSignatureResponse { address };
             Response::new(reply)
         })
+    }
+
+    async fn check_transactions(&self, request: Request<RawTransactions>) -> Result<Response<cita_cloud_proto::common::StatusCode>, Status> {
+        todo!()
     }
 }
 

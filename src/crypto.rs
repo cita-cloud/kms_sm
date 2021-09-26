@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use rand::RngCore;
+use status_code::StatusCode;
 
 pub fn encrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
     let key = password_hash[0..16].to_owned();
@@ -90,11 +91,15 @@ pub fn hash_data(data: &[u8]) -> Vec<u8> {
     sm3_hash(data).to_vec()
 }
 
-pub fn verify_data_hash(data: Vec<u8>, hash: Vec<u8>) -> bool {
+pub fn verify_data_hash(data: Vec<u8>, hash: Vec<u8>) -> StatusCode {
     if hash.len() != HASH_BYTES_LEN {
-        false
+        StatusCode::HashLenError
     } else {
-        hash == hash_data(&data)
+        if hash == hash_data(&data) {
+            StatusCode::Success
+        } else {
+            StatusCode::HashCheckError
+        }
     }
 }
 
@@ -104,9 +109,9 @@ pub fn pk2address(pk: &[u8]) -> Vec<u8> {
     hash_data(pk)[HASH_BYTES_LEN - ADDR_BYTES_LEN..].to_vec()
 }
 
-pub fn sign_message(pubkey: Vec<u8>, privkey: Vec<u8>, msg: Vec<u8>) -> Option<Vec<u8>> {
+pub fn sign_message(pubkey: Vec<u8>, privkey: Vec<u8>, msg: Vec<u8>) -> Result<Vec<u8>, StatusCode> {
     if msg.len() != HASH_BYTES_LEN {
-        None
+        Err(StatusCode::HashLenError)
     } else {
         Some(sm2_sign(&pubkey, &privkey, &msg).to_vec())
     }

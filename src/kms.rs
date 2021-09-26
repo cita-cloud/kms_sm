@@ -23,6 +23,7 @@ use rusqlite::types::ToSql;
 use rusqlite::{Error, Result};
 use std::vec::Vec;
 use tonic::Status;
+use status_code::StatusCode;
 
 const PASSWORD_SALT: &str = "Matthew 5-13";
 pub const CONFIG_TYPE: &str = "sm";
@@ -160,7 +161,7 @@ impl KMS {
         hash_data(data)
     }
 
-    pub fn verify_data_hash(&self, data: Vec<u8>, hash: Vec<u8>) -> bool {
+    pub fn verify_data_hash(&self, data: Vec<u8>, hash: Vec<u8>) -> StatusCode {
         verify_data_hash(data, hash)
     }
 
@@ -180,7 +181,7 @@ impl KMS {
         }
     }
 
-    pub fn sign_message(&self, key_id: u64, msg: Vec<u8>) -> Result<Vec<u8>, Status> {
+    pub fn sign_message(&self, key_id: u64, msg: Vec<u8>) -> Result<Vec<u8>, StatusCode> {
         if let Ok((pubkey, privkey)) = self.get_account(key_id) {
             if let Some(signature) = sign_message(pubkey, privkey, msg) {
                 Ok(signature)
