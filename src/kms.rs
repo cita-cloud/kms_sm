@@ -48,7 +48,7 @@ fn get_config(pool: Pool<SqliteConnectionManager>) -> Result<(Vec<u8>, String)> 
 }
 
 impl Kms {
-    pub fn new(db_path: &str, key_file: &Option<String>) -> Self {
+    pub fn new(db_path: String, mut password: String) -> Self {
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::new(manager).unwrap();
 
@@ -76,15 +76,6 @@ impl Kms {
             [],
         )
         .unwrap();
-
-        // user input main password or use key file
-        let mut password = match key_file {
-            Some(key_file) => std::fs::read_to_string(key_file)
-                .unwrap_or_else(|err| panic!("Error while loading key file: [{}]", err))
-                .trim_end()
-                .to_string(),
-            None => rpassword::read_password_from_tty(Some("Password: ")).unwrap(),
-        };
 
         if let Ok((pwd_hash, config_type)) = get_config(pool.clone()) {
             info!("verify config");

@@ -23,11 +23,12 @@ status_code = { git = "https://github.com/cita-cloud/status_code" }
 r2d2 = "0.8.9"
 r2d2_sqlite = "0.18.0"
 rusqlite = "0.25.3"
-rpassword = "5.0.1"
 libsm = "0.4.0"
 efficient-sm2 = "0.1.5"
 rand = "0.8"
 rayon = "1.5"
+serde = "1.0.126"
+serde_derive = "1.0.126"
 
 [profile.release.package."*"]
 # Set the default for dependencies.

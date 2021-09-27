@@ -14,6 +14,7 @@
 
 mod crypto;
 mod kms;
+mod config;
 
 use clap::Clap;
 use git_version::git_version;
@@ -54,22 +55,28 @@ struct RunOpts {
     #[clap(short = 'p', long = "port", default_value = "50005")]
     grpc_port: String,
     /// Sets path of db file.
-    #[clap(short = 'd', long = "db", default_value = "kms.db")]
-    db_path: String,
+    #[clap(short = 'd', long = "db")]
+    db_path: Option<String>,
     /// Sets path of key_file.
     #[clap(short = 'k', long = "key")]
     key_file: Option<String>,
+    /// Chain config path
+    #[clap(short = 'c', long = "config", default_value = "config.toml")]
+    config_path: String,
 }
 
 /// A subcommand for create
 #[derive(Clap)]
 struct CreateOpts {
     /// Sets path of db file.
-    #[clap(short = 'd', long = "db", default_value = "kms.db")]
-    db_path: String,
+    #[clap(short = 'd', long = "db")]
+    db_path: Option<String>,
     /// Sets path of key_file.
     #[clap(short = 'k', long = "key")]
     key_file: Option<String>,
+    /// Chain config path
+    #[clap(short = 'c', long = "config", default_value = "config.toml")]
+    config_path: String,
 }
 
 fn main() {
@@ -85,14 +92,6 @@ fn main() {
             println!("homepage: {}", GIT_HOMEPAGE);
         }
         SubCommand::Run(opts) => {
-            // init log4rs
-            log4rs::init_file("kms-log4rs.yaml", Default::default()).unwrap();
-            info!("grpc port of this service: {}", opts.grpc_port);
-            info!("db path of this service: {}", opts.db_path);
-            match &opts.key_file {
-                Some(key_file) => info!("key_file is {}", key_file),
-                None => info!("interact mod"),
-            }
             let _ = run(opts);
         }
         SubCommand::Create(opts) => {
@@ -115,6 +114,7 @@ use kms::Kms;
 use status_code::StatusCode;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use crate::config::KmsConfig;
 
 // grpc server of RPC
 pub struct KmsServer {
@@ -260,9 +260,36 @@ impl KmsService for KmsServer {
 
 #[tokio::main]
 async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
-    let kms = Kms::new(&opts.db_path, &opts.key_file);
+    let config = KmsConfig::new(&opts.config_path);
+    // init log4rs
+    log4rs::init_file(&config.log_file, Default::default()).unwrap();
 
-    let addr_str = format!("0.0.0.0:{}", opts.grpc_port);
+    let grpc_port = {
+        if "50005" != opts.grpc_port {
+            opts.grpc_port.clone()
+        } else if config.kms_port != 50005 {
+            config.kms_port.to_string()
+        } else {
+            "50005".to_string()
+        }
+    };
+    info!("grpc port of this service: {}", grpc_port);
+
+    let db_path = match opts.db_path {
+        Some(path) => path,
+        None => config.db_path
+    };
+    info!("db path of this service: {}", &db_path);
+
+    let key_file = match opts.key_file {
+        Some(key) => key,
+        None => config.db_key
+    };
+    info!("key_file is {:?}", &key_file);
+
+    let kms = Kms::new(db_path, key_file);
+
+    let addr_str = format!("0.0.0.0:{}", grpc_port);
     let addr = addr_str.parse()?;
 
     info!("start grpc server!");
@@ -277,7 +304,21 @@ async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn create(opts: CreateOpts) {
-    let kms = Kms::new(&opts.db_path, &opts.key_file);
+    let config = KmsConfig::new(&opts.config_path);
+
+    let db_path = match opts.db_path {
+        Some(path) => path,
+        None => config.db_path
+    };
+    info!("db path of this service: {}", &db_path);
+
+    let key_file = match opts.key_file {
+        Some(key) => key,
+        None => config.db_key
+    };
+    info!("key_file is {:?}", &key_file);
+
+    let kms = Kms::new(db_path, key_file);
     let (key_id, address) = kms
         .generate_key_pair("create by cmd".to_owned())
         .expect("generate_key_pair failed");
