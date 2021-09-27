@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod config;
 mod crypto;
 mod kms;
-mod config;
 
 use clap::Clap;
 use git_version::git_version;
@@ -108,13 +108,13 @@ use cita_cloud_proto::kms::{
 };
 use tonic::{transport::Server, Request, Response, Status};
 
+use crate::config::KmsConfig;
 use crate::crypto::{check_transactions, ADDR_BYTES_LEN, SM2_SIGNATURE_BYTES_LEN};
 use cita_cloud_proto::blockchain::RawTransactions;
 use kms::Kms;
 use status_code::StatusCode;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::config::KmsConfig;
 
 // grpc server of RPC
 pub struct KmsServer {
@@ -277,13 +277,13 @@ async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
 
     let db_path = match opts.db_path {
         Some(path) => path,
-        None => config.db_path
+        None => config.db_path,
     };
     info!("db path of this service: {}", &db_path);
 
     let key_file = match opts.key_file {
         Some(key) => key,
-        None => config.db_key
+        None => config.db_key,
     };
     info!("key_file is {:?}", &key_file);
 
@@ -308,13 +308,13 @@ fn create(opts: CreateOpts) {
 
     let db_path = match opts.db_path {
         Some(path) => path,
-        None => config.db_path
+        None => config.db_path,
     };
     info!("db path of this service: {}", &db_path);
 
     let key_file = match opts.key_file {
         Some(key) => key,
-        None => config.db_key
+        None => config.db_key,
     };
     info!("key_file is {:?}", &key_file);
 

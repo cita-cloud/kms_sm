@@ -53,9 +53,6 @@ mod tests {
         let config = KmsConfig::new("example/config.toml");
 
         assert_eq!(config.kms_port, 60005);
-        assert_eq!(
-            config.db_path,
-            "kms.db".to_string()
-        );
+        assert_eq!(config.db_path, "kms.db".to_string());
     }
 }
