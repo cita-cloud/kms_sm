@@ -40,7 +40,7 @@ impl Default for KmsConfig {
 
 impl KmsConfig {
     pub fn new(config_str: &str) -> Self {
-        read_toml(config_str, "kms")
+        read_toml(config_str, "kms_sm")
     }
 }
 
