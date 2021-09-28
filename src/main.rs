@@ -92,10 +92,11 @@ fn main() {
             println!("homepage: {}", GIT_HOMEPAGE);
         }
         SubCommand::Run(opts) => {
-            let _ = run(opts);
+            let fin = run(opts);
+            warn!("Should not reach here {:?}", fin);
         }
         SubCommand::Create(opts) => {
-            let _ = create(opts);
+            create(opts);
         }
     }
 }
@@ -259,7 +260,7 @@ impl KmsService for KmsServer {
 }
 
 #[tokio::main]
-async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
+async fn run(opts: RunOpts) -> Result<(), StatusCode> {
     let config = KmsConfig::new(&opts.config_path);
     // init log4rs
     log4rs::init_file(&config.log_file, Default::default()).unwrap();
@@ -298,7 +299,11 @@ async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
             RwLock::new(kms),
         ))))
         .serve(addr)
-        .await?;
+        .await
+        .map_err(|e| {
+            warn!("start kms grpc server failed: {} ", e.to_string());
+            StatusCode::FatalError
+        })?;
 
     Ok(())
 }
