@@ -18,7 +18,7 @@ mod kms;
 
 use clap::Clap;
 use git_version::git_version;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 const GIT_VERSION: &str = git_version!(
     args = ["--tags", "--always", "--dirty=-modified"],
@@ -101,7 +101,7 @@ fn main() {
     }
 }
 
-use cita_cloud_proto::common::{Empty, Hash, HashRespond};
+use cita_cloud_proto::common::{Empty, Hash, HashResponse};
 use cita_cloud_proto::kms::{
     kms_service_server::KmsService, kms_service_server::KmsServiceServer, GenerateKeyPairRequest,
     GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, RecoverSignatureRequest,
@@ -116,6 +116,7 @@ use kms::Kms;
 use status_code::StatusCode;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::net::AddrParseError;
 
 // grpc server of RPC
 pub struct KmsServer {
@@ -164,14 +165,14 @@ impl KmsService for KmsServer {
     async fn hash_data(
         &self,
         request: Request<HashDataRequest>,
-    ) -> Result<Response<HashRespond>, Status> {
+    ) -> Result<Response<HashResponse>, Status> {
         debug!("hash_date request: {:?}", request);
 
         let req = request.into_inner();
         let data = req.data;
 
         let kms = self.kms.read().await;
-        Ok(Response::new(HashRespond {
+        Ok(Response::new(HashResponse {
             status: Some(StatusCode::Success.into()),
             hash: Some(Hash {
                 hash: kms.hash_date(&data),
@@ -291,7 +292,10 @@ async fn run(opts: RunOpts) -> Result<(), StatusCode> {
     let kms = Kms::new(db_path, key_file);
 
     let addr_str = format!("0.0.0.0:{}", grpc_port);
-    let addr = addr_str.parse()?;
+    let addr = addr_str.parse().map_err(|e: AddrParseError| {
+        warn!("grpc listen addr parse failed: {} ", e.to_string());
+        StatusCode::FatalError
+    })?;
 
     info!("start grpc server!");
     Server::builder()
