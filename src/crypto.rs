@@ -23,7 +23,7 @@ pub fn encrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
     let key = password_hash[0..16].to_owned();
     let iv = password_hash[16..32].to_owned();
 
-    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cbc);
+    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cfb);
 
     cipher.encrypt(&data, &iv)
 }
@@ -32,7 +32,7 @@ pub fn decrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
     let key = password_hash[0..16].to_owned();
     let iv = password_hash[16..32].to_owned();
 
-    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cbc);
+    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cfb);
 
     cipher.decrypt(&data, &iv)
 }
@@ -131,18 +131,12 @@ pub fn pk2address(pk: &[u8]) -> Vec<u8> {
 }
 
 pub fn sign_message(pubkey: &[u8], privkey: &[u8], msg: &[u8]) -> Result<Vec<u8>, StatusCode> {
-    if msg.len() != HASH_BYTES_LEN {
-        Err(StatusCode::HashLenError)
-    } else {
-        Ok(sm2_sign(pubkey, privkey, msg)?.to_vec())
-    }
+    Ok(sm2_sign(pubkey, privkey, msg)?.to_vec())
 }
 
 pub fn recover_signature(msg: &[u8], signature: &[u8]) -> Result<Vec<u8>, StatusCode> {
     if signature.len() != SM2_SIGNATURE_BYTES_LEN {
         Err(StatusCode::SigLenError)
-    } else if msg.len() != HASH_BYTES_LEN {
-        Err(StatusCode::HashLenError)
     } else {
         sm2_recover(signature, msg)
     }
