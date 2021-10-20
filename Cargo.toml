@@ -15,6 +15,7 @@ git-version = "0.3.5"
 tonic = "0.5.2"
 prost = "0.8.0"
 tokio = { version = "1.0", features = ["full"] }
+hex = "0.4"
 
 cloud-util = { git = "https://github.com/cita-cloud/cloud-util" }
 cita_cloud_proto = { git = "https://github.com/cita-cloud/cita_cloud_proto", branch = "wip-7.0.0-dev" }

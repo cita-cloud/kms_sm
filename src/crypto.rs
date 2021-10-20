@@ -142,6 +142,7 @@ pub fn recover_signature(msg: &[u8], signature: &[u8]) -> Result<Vec<u8>, Status
     }
 }
 
+#[allow(dead_code)]
 pub fn check_transactions(raw_txs: &RawTransactions) -> StatusCode {
     use rayon::prelude::*;
 
@@ -152,8 +153,8 @@ pub fn check_transactions(raw_txs: &RawTransactions) -> StatusCode {
             .map(|raw_tx| {
                 check_transaction(raw_tx).map_err(|status| {
                     log::warn!(
-                        "check_raw_tx tx(0x{:?}) failed: {}",
-                        get_tx_hash(raw_tx),
+                        "check_raw_tx tx(0x{}) failed: {}",
+                        hex::encode(get_tx_hash(raw_tx).unwrap()),
                         status
                     );
                     status
@@ -168,6 +169,7 @@ pub fn check_transactions(raw_txs: &RawTransactions) -> StatusCode {
     }
 }
 
+#[allow(dead_code)]
 fn check_transaction(raw_tx: &RawTransaction) -> Result<(), StatusCode> {
     match raw_tx.tx.as_ref() {
         Some(NormalTx(normal_tx)) => {
@@ -191,9 +193,9 @@ fn check_transaction(raw_tx: &RawTransaction) -> Result<(), StatusCode> {
 
             let tx_hash = &normal_tx.transaction_hash;
 
-            verify_data_hash(tx_hash, &tx_bytes)?;
+            verify_data_hash(&tx_bytes, tx_hash)?;
 
-            if &recover_signature(tx_hash, signature)? == sender {
+            if &pk2address(&recover_signature(tx_hash, signature)?) == sender {
                 Ok(())
             } else {
                 Err(StatusCode::SigCheckError)
@@ -218,13 +220,13 @@ fn check_transaction(raw_tx: &RawTransaction) -> Result<(), StatusCode> {
             }
 
             let tx_hash = &utxo_tx.transaction_hash;
-            verify_data_hash(tx_hash, &tx_bytes)?;
+            verify_data_hash(&tx_bytes, tx_hash)?;
 
             for (_i, w) in witnesses.iter().enumerate() {
                 let signature = &w.signature;
                 let sender = &w.sender;
 
-                if &recover_signature(tx_hash, signature)? != sender {
+                if &pk2address(&recover_signature(tx_hash, signature)?) != sender {
                     return Err(StatusCode::SigCheckError);
                 }
             }
