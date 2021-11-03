@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod config;
 mod crypto;
 mod kms;
 
 use clap::Clap;
 use git_version::git_version;
-use log::{debug, info};
+use log::{debug, info, warn};
 
 const GIT_VERSION: &str = git_version!(
     args = ["--tags", "--always", "--dirty=-modified"],
@@ -54,22 +55,28 @@ struct RunOpts {
     #[clap(short = 'p', long = "port", default_value = "50005")]
     grpc_port: String,
     /// Sets path of db file.
-    #[clap(short = 'd', long = "db", default_value = "kms.db")]
-    db_path: String,
+    #[clap(short = 'd', long = "db")]
+    db_path: Option<String>,
     /// Sets path of key_file.
     #[clap(short = 'k', long = "key")]
     key_file: Option<String>,
+    /// Chain config path
+    #[clap(short = 'c', long = "config", default_value = "config.toml")]
+    config_path: String,
 }
 
 /// A subcommand for create
 #[derive(Clap)]
 struct CreateOpts {
     /// Sets path of db file.
-    #[clap(short = 'd', long = "db", default_value = "kms.db")]
-    db_path: String,
+    #[clap(short = 'd', long = "db")]
+    db_path: Option<String>,
     /// Sets path of key_file.
     #[clap(short = 'k', long = "key")]
     key_file: Option<String>,
+    /// Chain config path
+    #[clap(short = 'c', long = "config", default_value = "config.toml")]
+    config_path: String,
 }
 
 fn main() {
@@ -85,42 +92,39 @@ fn main() {
             println!("homepage: {}", GIT_HOMEPAGE);
         }
         SubCommand::Run(opts) => {
-            // init log4rs
-            log4rs::init_file("kms-log4rs.yaml", Default::default()).unwrap();
-            info!("grpc port of this service: {}", opts.grpc_port);
-            info!("db path of this service: {}", opts.db_path);
-            match &opts.key_file {
-                Some(key_file) => info!("key_file is {}", key_file),
-                None => info!("interact mod"),
-            }
-            let _ = run(opts);
+            let fin = run(opts);
+            warn!("Should not reach here {:?}", fin);
         }
         SubCommand::Create(opts) => {
-            let _ = create(opts);
+            create(opts);
         }
     }
 }
 
-use cita_cloud_proto::common::{Empty, SimpleResponse};
+use cita_cloud_proto::common::{Empty, Hash, HashResponse};
 use cita_cloud_proto::kms::{
     kms_service_server::KmsService, kms_service_server::KmsServiceServer, GenerateKeyPairRequest,
-    GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, HashDataResponse,
-    RecoverSignatureRequest, RecoverSignatureResponse, SignMessageRequest, SignMessageResponse,
-    VerifyDataHashRequest,
+    GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, RecoverSignatureRequest,
+    RecoverSignatureResponse, SignMessageRequest, SignMessageResponse, VerifyDataHashRequest,
 };
 use tonic::{transport::Server, Request, Response, Status};
 
-use kms::KMS;
+use crate::config::KmsConfig;
+use crate::crypto::{check_transactions, ADDR_BYTES_LEN, SM2_SIGNATURE_BYTES_LEN};
+use crate::kms::Kms;
+use cita_cloud_proto::blockchain::RawTransactions;
+use status_code::StatusCode;
+use std::net::AddrParseError;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 // grpc server of RPC
 pub struct KmsServer {
-    kms: Arc<RwLock<KMS>>,
+    kms: Arc<RwLock<Kms>>,
 }
 
 impl KmsServer {
-    fn new(kms: Arc<RwLock<KMS>>) -> Self {
+    fn new(kms: Arc<RwLock<Kms>>) -> Self {
         KmsServer { kms }
     }
 }
@@ -132,13 +136,13 @@ impl KmsService for KmsServer {
         _request: Request<Empty>,
     ) -> Result<Response<GetCryptoInfoResponse>, Status> {
         debug!("get_crypto_info");
-        let reply = GetCryptoInfoResponse {
+        Ok(Response::new(GetCryptoInfoResponse {
+            status: Some(StatusCode::Success.into()),
             name: kms::CONFIG_TYPE.to_string(),
             hash_len: crypto::HASH_BYTES_LEN as u32,
             signature_len: crypto::SM2_SIGNATURE_BYTES_LEN as u32,
             address_len: crypto::ADDR_BYTES_LEN as u32,
-        };
-        Ok(Response::new(reply))
+        }))
     }
 
     // Err code maybe return: aborted
@@ -152,32 +156,34 @@ impl KmsService for KmsServer {
         let description = req.description;
 
         let kms = self.kms.read().await;
-        kms.generate_key_pair(description).map(|(key_id, address)| {
-            let reply = GenerateKeyPairResponse { key_id, address };
-            Response::new(reply)
-        })
+        kms.generate_key_pair(description).map_or_else(
+            |e| Err(Status::invalid_argument(e.to_string())),
+            |(key_id, address)| Ok(Response::new(GenerateKeyPairResponse { key_id, address })),
+        )
     }
 
     async fn hash_data(
         &self,
         request: Request<HashDataRequest>,
-    ) -> Result<Response<HashDataResponse>, Status> {
+    ) -> Result<Response<HashResponse>, Status> {
         debug!("hash_date request: {:?}", request);
 
         let req = request.into_inner();
         let data = req.data;
 
         let kms = self.kms.read().await;
-        let reply = HashDataResponse {
-            hash: kms.hash_date(&data),
-        };
-        Ok(Response::new(reply))
+        Ok(Response::new(HashResponse {
+            status: Some(StatusCode::Success.into()),
+            hash: Some(Hash {
+                hash: kms.hash_date(&data),
+            }),
+        }))
     }
 
     async fn verify_data_hash(
         &self,
         request: Request<VerifyDataHashRequest>,
-    ) -> Result<Response<SimpleResponse>, Status> {
+    ) -> Result<Response<cita_cloud_proto::common::StatusCode>, Status> {
         debug!("verify_data_hash request: {:?}", request);
 
         let req = request.into_inner();
@@ -185,10 +191,7 @@ impl KmsService for KmsServer {
         let hash = req.hash;
 
         let kms = self.kms.read().await;
-        let reply = SimpleResponse {
-            is_success: kms.verify_data_hash(data, hash),
-        };
-        Ok(Response::new(reply))
+        Ok(Response::new(kms.verify_data_hash(&data, &hash).into()))
     }
 
     // Err code maybe return: aborted/invalid_argument
@@ -203,10 +206,20 @@ impl KmsService for KmsServer {
         let msg = req.msg;
 
         let kms = self.kms.read().await;
-        kms.sign_message(key_id, msg).map(|signature| {
-            let reply = SignMessageResponse { signature };
-            Response::new(reply)
-        })
+        kms.sign_message(key_id, &msg).map_or_else(
+            |status| {
+                Ok(Response::new(SignMessageResponse {
+                    status: Some(status.into()),
+                    signature: [0; SM2_SIGNATURE_BYTES_LEN].to_vec(),
+                }))
+            },
+            |signature| {
+                Ok(Response::new(SignMessageResponse {
+                    status: Some(StatusCode::Success.into()),
+                    signature,
+                }))
+            },
+        )
     }
 
     // Err code maybe return: invalid_argument
@@ -221,19 +234,68 @@ impl KmsService for KmsServer {
         let signature = req.signature;
 
         let kms = self.kms.read().await;
-        kms.recover_signature(msg, signature).map(|address| {
-            let reply = RecoverSignatureResponse { address };
-            Response::new(reply)
-        })
+        kms.recover_signature(&msg, &signature).map_or_else(
+            |status| {
+                Ok(Response::new(RecoverSignatureResponse {
+                    status: Some(status.into()),
+                    address: [0; ADDR_BYTES_LEN].to_vec(),
+                }))
+            },
+            |address| {
+                Ok(Response::new(RecoverSignatureResponse {
+                    status: Some(StatusCode::Success.into()),
+                    address,
+                }))
+            },
+        )
+    }
+
+    async fn check_transactions(
+        &self,
+        request: Request<RawTransactions>,
+    ) -> Result<Response<cita_cloud_proto::common::StatusCode>, Status> {
+        debug!("check_transactions request: {:?}", request);
+        let req = request.into_inner();
+        Ok(Response::new(check_transactions(&req).into()))
     }
 }
 
 #[tokio::main]
-async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
-    let kms = KMS::new(&opts.db_path, &opts.key_file);
+async fn run(opts: RunOpts) -> Result<(), StatusCode> {
+    let config = KmsConfig::new(&opts.config_path);
+    // init log4rs
+    log4rs::init_file(&config.log_file, Default::default()).unwrap();
 
-    let addr_str = format!("0.0.0.0:{}", opts.grpc_port);
-    let addr = addr_str.parse()?;
+    let grpc_port = {
+        if "50005" != opts.grpc_port {
+            opts.grpc_port.clone()
+        } else if config.kms_port != 50005 {
+            config.kms_port.to_string()
+        } else {
+            "50005".to_string()
+        }
+    };
+    info!("grpc port of this service: {}", grpc_port);
+
+    let db_path = match opts.db_path {
+        Some(path) => path,
+        None => config.db_path,
+    };
+    info!("db path of this service: {}", &db_path);
+
+    let key_file = match opts.key_file {
+        Some(key) => key,
+        None => config.db_key,
+    };
+    info!("key_file is {:?}", &key_file);
+
+    let kms = Kms::new(db_path, key_file);
+
+    let addr_str = format!("0.0.0.0:{}", grpc_port);
+    let addr = addr_str.parse().map_err(|e: AddrParseError| {
+        warn!("grpc listen addr parse failed: {} ", e.to_string());
+        StatusCode::FatalError
+    })?;
 
     info!("start grpc server!");
     Server::builder()
@@ -241,13 +303,31 @@ async fn run(opts: RunOpts) -> Result<(), Box<dyn std::error::Error>> {
             RwLock::new(kms),
         ))))
         .serve(addr)
-        .await?;
+        .await
+        .map_err(|e| {
+            warn!("start kms grpc server failed: {} ", e.to_string());
+            StatusCode::FatalError
+        })?;
 
     Ok(())
 }
 
 fn create(opts: CreateOpts) {
-    let kms = KMS::new(&opts.db_path, &opts.key_file);
+    let config = KmsConfig::new(&opts.config_path);
+
+    let db_path = match opts.db_path {
+        Some(path) => path,
+        None => config.db_path,
+    };
+    info!("db path of this service: {}", &db_path);
+
+    let key_file = match opts.key_file {
+        Some(key) => key,
+        None => config.db_key,
+    };
+    info!("key_file is {:?}", &key_file);
+
+    let kms = Kms::new(db_path, key_file);
     let (key_id, address) = kms
         .generate_key_pair("create by cmd".to_owned())
         .expect("generate_key_pair failed");
