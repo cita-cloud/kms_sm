@@ -14,7 +14,7 @@
 
 use crate::crypto::{
     decrypt, encrypt, generate_keypair, hash_data, pk2address, recover_signature, sign_message,
-    verify_data_hash,
+    sk2pk, verify_data_hash,
 };
 use log::{info, warn};
 use r2d2::Pool;
@@ -107,6 +107,31 @@ impl Kms {
                 pool,
                 password: pwd_hash,
             }
+        }
+    }
+
+    pub fn insert_privkey(&self, privkey: Vec<u8>, description: String) -> Result<u64, StatusCode> {
+        use std::convert::TryInto;
+
+        let conn = self.pool.get().unwrap();
+        let pubkey = sk2pk(privkey.as_slice().try_into().unwrap())
+            .unwrap()
+            .to_vec();
+        let encrypted_sk = encrypt(&self.password, privkey);
+
+        match conn.execute(
+            "INSERT INTO account (pubkey, privkey, description) values (?1, ?2, ?3)",
+            &[
+                &pubkey as &dyn ToSql,
+                &encrypted_sk as &dyn ToSql,
+                &description as &dyn ToSql,
+            ],
+        ) {
+            Err(e) => {
+                warn!("insert_account failed: {:?}", e);
+                Err(StatusCode::InsertAccountError)
+            }
+            Ok(_) => Ok(conn.last_insert_rowid() as u64),
         }
     }
 
