@@ -126,14 +126,14 @@ pub fn verify_data_hash(data: &[u8], hash: &[u8]) -> Result<(), StatusCode> {
 
 pub const ADDR_BYTES_LEN: usize = 20;
 
-pub fn sk2pk(sk: &[u8; SM2_PRIVKEY_BYTES_LEN]) -> Result<[u8; SM2_PUBKEY_BYTES_LEN], StatusCode> {
-    use std::convert::TryInto;
-
+pub fn sk2pk(sk: &[u8]) -> Vec<u8> {
     let keypair = efficient_sm2::KeyPair::new(sk).unwrap();
-    let pk = keypair.public_key().bytes_less_safe()[1..]
-        .try_into()
-        .unwrap();
-    Ok(pk)
+    keypair.public_key().bytes_less_safe()[1..].to_vec()
+}
+
+pub fn sk2address(sk: &[u8]) -> Vec<u8> {
+    let pk = sk2pk(sk);
+    pk2address(&pk)
 }
 
 pub fn pk2address(pk: &[u8]) -> Vec<u8> {
