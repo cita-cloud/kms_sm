@@ -110,13 +110,18 @@ impl Kms {
         }
     }
 
-    pub fn insert_privkey(&self, privkey: Vec<u8>, description: String) -> Result<u64, StatusCode> {
+    pub fn import_privkey(
+        &self,
+        privkey: Vec<u8>,
+        description: String,
+    ) -> Result<(u64, Vec<u8>), StatusCode> {
         use std::convert::TryInto;
 
         let conn = self.pool.get().unwrap();
         let pubkey = sk2pk(privkey.as_slice().try_into().unwrap())
             .unwrap()
             .to_vec();
+        let addr = pk2address(pubkey.as_slice());
         let encrypted_sk = encrypt(&self.password, privkey);
 
         match conn.execute(
@@ -131,7 +136,7 @@ impl Kms {
                 warn!("insert_account failed: {:?}", e);
                 Err(StatusCode::InsertAccountError)
             }
-            Ok(_) => Ok(conn.last_insert_rowid() as u64),
+            Ok(_) => Ok((conn.last_insert_rowid() as u64, addr)),
         }
     }
 
