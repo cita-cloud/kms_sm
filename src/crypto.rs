@@ -126,6 +126,17 @@ pub fn verify_data_hash(data: &[u8], hash: &[u8]) -> Result<(), StatusCode> {
 
 pub const ADDR_BYTES_LEN: usize = 20;
 
+pub fn sk2pk(sk: &[u8]) -> Vec<u8> {
+    let keypair = efficient_sm2::KeyPair::new(sk).unwrap();
+    keypair.public_key().bytes_less_safe()[1..].to_vec()
+}
+
+#[allow(dead_code)]
+pub fn sk2address(sk: &[u8]) -> Vec<u8> {
+    let pk = sk2pk(sk);
+    pk2address(&pk)
+}
+
 pub fn pk2address(pk: &[u8]) -> Vec<u8> {
     hash_data(pk)[HASH_BYTES_LEN - ADDR_BYTES_LEN..].to_vec()
 }

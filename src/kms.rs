@@ -14,7 +14,7 @@
 
 use crate::crypto::{
     decrypt, encrypt, generate_keypair, hash_data, pk2address, recover_signature, sign_message,
-    verify_data_hash,
+    sk2pk, verify_data_hash,
 };
 use log::{info, warn};
 use r2d2::Pool;
@@ -110,10 +110,25 @@ impl Kms {
         }
     }
 
+    // return key id and account address
+    #[allow(dead_code)]
+    pub fn import_privkey(
+        &self,
+        privkey: Vec<u8>,
+        description: String,
+    ) -> Result<(u64, Vec<u8>), StatusCode> {
+        let pubkey = sk2pk(privkey.as_slice());
+        let addr = pk2address(pubkey.as_slice());
+        let encrypted_sk = encrypt(&self.password, privkey);
+
+        self.insert_account(pubkey, encrypted_sk, description)
+            .map(|key_id| (key_id, addr))
+    }
+
     fn insert_account(
         &self,
         pubkey: Vec<u8>,
-        privkey: Vec<u8>,
+        encrypted_privkey: Vec<u8>,
         description: String,
     ) -> Result<u64, StatusCode> {
         let conn = self.pool.get().unwrap();
@@ -122,7 +137,7 @@ impl Kms {
             "INSERT INTO account (pubkey, privkey, description) values (?1, ?2, ?3)",
             &[
                 &pubkey as &dyn ToSql,
-                &privkey as &dyn ToSql,
+                &encrypted_privkey as &dyn ToSql,
                 &description as &dyn ToSql,
             ],
         ) {
