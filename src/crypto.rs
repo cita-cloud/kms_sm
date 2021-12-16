@@ -131,6 +131,7 @@ pub fn sk2pk(sk: &[u8]) -> Vec<u8> {
     keypair.public_key().bytes_less_safe()[1..].to_vec()
 }
 
+#[allow(dead_code)]
 pub fn sk2address(sk: &[u8]) -> Vec<u8> {
     let pk = sk2pk(sk);
     pk2address(&pk)
