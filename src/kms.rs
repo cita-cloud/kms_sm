@@ -114,10 +114,10 @@ impl Kms {
     #[allow(dead_code)]
     pub fn import_privkey(
         &self,
-        privkey: Vec<u8>,
+        privkey: &[u8],
         description: String,
     ) -> Result<(u64, Vec<u8>), StatusCode> {
-        let pubkey = sk2pk(privkey.as_slice());
+        let pubkey = sk2pk(privkey);
         let addr = pk2address(pubkey.as_slice());
         let encrypted_sk = encrypt(&self.password, privkey);
 
@@ -151,7 +151,7 @@ impl Kms {
 
     pub fn generate_key_pair(&self, description: String) -> Result<(u64, Vec<u8>), StatusCode> {
         let (pk, sk) = generate_keypair()?;
-        let encrypted_sk = encrypt(&self.password, sk);
+        let encrypted_sk = encrypt(&self.password, &sk);
         self.insert_account(pk.clone(), encrypted_sk, description)
             .map(|key_id| {
                 let address = pk2address(&pk);
