@@ -19,13 +19,11 @@ use prost::Message;
 use rand::RngCore;
 use status_code::StatusCode;
 
-pub fn encrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
-    let key = password_hash[0..16].to_owned();
-    let iv = password_hash[16..32].to_owned();
+pub fn encrypt(password_hash: &[u8], data: &[u8]) -> Vec<u8> {
+    let (key, iv) = password_hash.split_at(16);
+    let cipher = libsm::sm4::Cipher::new(key, libsm::sm4::Mode::Cfb);
 
-    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cfb);
-
-    cipher.encrypt(&data, &iv)
+    cipher.encrypt(data, iv)
 }
 
 pub fn decrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
