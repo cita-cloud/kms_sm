@@ -167,7 +167,7 @@ impl Kms {
         verify_data_hash(data, hash).map_or_else(|e| e, |_| StatusCode::Success)
     }
 
-    fn get_account(&self, key_id: u64) -> Result<(Vec<u8>, Vec<u8>)> {
+    pub fn get_account(&self, key_id: u64) -> Result<(Vec<u8>, Vec<u8>)> {
         let conn = self.pool.get().unwrap();
         let mut stmt = conn.prepare("SELECT pubkey, privkey FROM account WHERE id = ?")?;
         let mut rows = stmt.query([key_id])?;

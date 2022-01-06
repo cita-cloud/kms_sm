@@ -46,6 +46,12 @@ enum SubCommand {
     /// create key in command line
     #[clap(name = "create")]
     Create(CreateOpts),
+    /// import account
+    #[clap(name = "import")]
+    Import(ImportOpts),
+    /// export account
+    #[clap(name = "export")]
+    Export(ExportOpts),
 }
 
 /// A subcommand for run
@@ -79,6 +85,35 @@ struct CreateOpts {
     config_path: String,
 }
 
+/// A subcommand for import account
+#[derive(Clap)]
+struct ImportOpts {
+    /// Path of db file.
+    #[clap(short = 'd', long = "db", default_value = "kms.db")]
+    db_path: String,
+    /// KMS password.
+    #[clap(short = 'k', long = "password")]
+    password: String,
+    /// account private key
+    #[clap(short = 's', long = "privkey")]
+    privkey: String,
+}
+
+/// A subcommand for export account
+#[derive(Clap)]
+struct ExportOpts {
+    /// Path of db file.
+    #[clap(short = 'd', long = "db", default_value = "kms.db")]
+    db_path: String,
+    /// KMS password.
+    #[clap(short = 'p', long = "password")]
+    password: String,
+    /// account key id
+    #[clap(short, long)]
+    key_id: u64,
+}
+
+
 fn main() {
     ::std::env::set_var("RUST_BACKTRACE", "full");
 
@@ -97,6 +132,12 @@ fn main() {
         }
         SubCommand::Create(opts) => {
             create(opts);
+        }
+        SubCommand::Import(opts) => {
+            import_account(opts);
+        }
+        SubCommand::Export(opts) => {
+            export_account(opts);
         }
     }
 }
@@ -337,4 +378,18 @@ fn create(opts: CreateOpts) {
         address_hex.push_str(&v_str);
     }
     println!("key_id:{},address:{}", key_id, address_hex);
+}
+
+fn import_account(opts: ImportOpts) {
+    let kms = Kms::new(opts.db_path, opts.password);
+    let privkey = hex::decode(opts.privkey).expect("invalid privkey");
+    let (key_id, addr) = kms.import_privkey(&privkey, "imported account".into()).expect("import account failed");
+    println!("key_id:{},address:0x{}", key_id, hex::encode(&addr));
+}
+
+fn export_account(opts: ExportOpts) {
+    let kms = Kms::new(opts.db_path, opts.password);
+    let (pk, sk) = kms.get_account(opts.key_id).expect("get account failed");
+    println!("pubkey: 0x{}", hex::encode(&pk));
+    println!("privkey: 0x{}", hex::encode(&sk));
 }
