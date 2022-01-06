@@ -95,7 +95,7 @@ struct ImportOpts {
     #[clap(short = 'k', long = "password")]
     password: String,
     /// account private key
-    #[clap(short = 's', long = "privkey")]
+    #[clap(short = 's', long = "sk")]
     privkey: String,
 }
 
@@ -106,13 +106,12 @@ struct ExportOpts {
     #[clap(short = 'd', long = "db", default_value = "kms.db")]
     db_path: String,
     /// KMS password.
-    #[clap(short = 'p', long = "password")]
+    #[clap(short = 'k', long = "password")]
     password: String,
     /// account key id
-    #[clap(short, long)]
+    #[clap(short = 'i', long = "id")]
     key_id: u64,
 }
-
 
 fn main() {
     ::std::env::set_var("RUST_BACKTRACE", "full");
@@ -382,8 +381,10 @@ fn create(opts: CreateOpts) {
 
 fn import_account(opts: ImportOpts) {
     let kms = Kms::new(opts.db_path, opts.password);
-    let privkey = hex::decode(opts.privkey).expect("invalid privkey");
-    let (key_id, addr) = kms.import_privkey(&privkey, "imported account".into()).expect("import account failed");
+    let privkey = hex::decode(remove_0x(&opts.privkey)).expect("invalid privkey");
+    let (key_id, addr) = kms
+        .import_privkey(&privkey, "imported account".into())
+        .expect("import account failed");
     println!("key_id:{},address:0x{}", key_id, hex::encode(&addr));
 }
 
@@ -392,4 +393,8 @@ fn export_account(opts: ExportOpts) {
     let (pk, sk) = kms.get_account(opts.key_id).expect("get account failed");
     println!("pubkey: 0x{}", hex::encode(&pk));
     println!("privkey: 0x{}", hex::encode(&sk));
+}
+
+fn remove_0x(s: &str) -> &str {
+    s.strip_prefix("0x").unwrap_or(s)
 }
