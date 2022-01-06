@@ -159,7 +159,7 @@ impl Kms {
             })
     }
 
-    pub fn hash_date(&self, data: &[u8]) -> Vec<u8> {
+    pub fn hash_data(&self, data: &[u8]) -> Vec<u8> {
         hash_data(data)
     }
 

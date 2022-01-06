@@ -166,7 +166,7 @@ impl KmsService for KmsServer {
         &self,
         request: Request<HashDataRequest>,
     ) -> Result<Response<HashResponse>, Status> {
-        debug!("hash_date request: {:?}", request);
+        debug!("hash_data request: {:?}", request);
 
         let req = request.into_inner();
         let data = req.data;
@@ -175,7 +175,7 @@ impl KmsService for KmsServer {
         Ok(Response::new(HashResponse {
             status: Some(StatusCode::Success.into()),
             hash: Some(Hash {
-                hash: kms.hash_date(&data),
+                hash: kms.hash_data(&data),
             }),
         }))
     }
