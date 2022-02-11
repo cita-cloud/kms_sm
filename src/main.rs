@@ -16,7 +16,7 @@ mod config;
 mod crypto;
 mod kms;
 
-use clap::Clap;
+use clap::Parser;
 use git_version::git_version;
 use log::{debug, info, warn};
 
@@ -28,14 +28,14 @@ const GIT_HOMEPAGE: &str = "https://github.com/cita-cloud/kms_sm";
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version = "0.1.0", author = "Rivtower Technologies.")]
 struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
     /// print information from git
     #[clap(name = "git")]
@@ -49,7 +49,7 @@ enum SubCommand {
 }
 
 /// A subcommand for run
-#[derive(Clap)]
+#[derive(Parser)]
 struct RunOpts {
     /// Sets grpc port of this service.
     #[clap(short = 'p', long = "port", default_value = "50005")]
@@ -66,7 +66,7 @@ struct RunOpts {
 }
 
 /// A subcommand for create
-#[derive(Clap)]
+#[derive(Parser)]
 struct CreateOpts {
     /// Sets path of db file.
     #[clap(short = 'd', long = "db")]
