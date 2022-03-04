@@ -23,8 +23,6 @@ pub struct KmsConfig {
     pub db_path: String,
 
     pub db_key: String,
-
-    pub log_file: String,
 }
 
 impl Default for KmsConfig {
@@ -33,7 +31,6 @@ impl Default for KmsConfig {
             kms_port: 50005,
             db_path: "kms.db".to_string(),
             db_key: "123456".to_string(),
-            log_file: "kms-log4rs.yaml".to_string(),
         }
     }
 }
