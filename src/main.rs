@@ -51,18 +51,12 @@ enum SubCommand {
 /// A subcommand for run
 #[derive(Parser)]
 struct RunOpts {
-    /// Sets grpc port of this service.
-    #[clap(short = 'p', long = "port", default_value = "50005")]
-    grpc_port: String,
-    /// Sets path of db file.
-    #[clap(short = 'd', long = "db")]
-    db_path: Option<String>,
-    /// Sets path of key_file.
-    #[clap(short = 'k', long = "key")]
-    key_file: Option<String>,
     /// Chain config path
     #[clap(short = 'c', long = "config", default_value = "config.toml")]
     config_path: String,
+    /// log config path
+    #[clap(short = 'l', long = "log", default_value = "kms-log4rs.yaml")]
+    log_file: String,
 }
 
 /// A subcommand for create
@@ -264,36 +258,21 @@ impl KmsService for KmsServer {
 async fn run(opts: RunOpts) -> Result<(), StatusCode> {
     let config = KmsConfig::new(&opts.config_path);
     // init log4rs
-    log4rs::init_file(&config.log_file, Default::default()).unwrap();
+    log4rs::init_file(&opts.log_file, Default::default())
+        .map_err(|e| println!("log init err: {}", e))
+        .unwrap();
 
-    let grpc_port = {
-        if "50005" != opts.grpc_port {
-            opts.grpc_port.clone()
-        } else if config.kms_port != 50005 {
-            config.kms_port.to_string()
-        } else {
-            "50005".to_string()
-        }
-    };
-    info!("grpc port of this service: {}", grpc_port);
+    info!("grpc port of this service: {}", &config.kms_port);
 
-    let db_path = match opts.db_path {
-        Some(path) => path,
-        None => config.db_path,
-    };
-    info!("db path of this service: {}", &db_path);
+    info!("db path of this service: {}", &config.db_path);
 
-    let key_file = match opts.key_file {
-        Some(key) => key,
-        None => config.db_key,
-    };
-    info!("key_file is {:?}", &key_file);
+    info!("key_file is {:?}", &config.db_key);
 
-    let kms = Kms::new(db_path, key_file);
+    let kms = Kms::new(config.db_path, config.db_key);
 
-    let addr_str = format!("0.0.0.0:{}", grpc_port);
+    let addr_str = format!("0.0.0.0:{}", config.kms_port);
     let addr = addr_str.parse().map_err(|e: AddrParseError| {
-        warn!("grpc listen addr parse failed: {} ", e.to_string());
+        warn!("grpc listen addr parse failed: {} ", e);
         StatusCode::FatalError
     })?;
 
@@ -305,7 +284,7 @@ async fn run(opts: RunOpts) -> Result<(), StatusCode> {
         .serve(addr)
         .await
         .map_err(|e| {
-            warn!("start kms grpc server failed: {} ", e.to_string());
+            warn!("start kms grpc server failed: {} ", e);
             StatusCode::FatalError
         })?;
 
