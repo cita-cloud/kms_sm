@@ -29,7 +29,7 @@ const GIT_HOMEPAGE: &str = "https://github.com/cita-cloud/kms_sm";
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
 #[derive(Parser)]
-#[clap(version = "0.1.0", author = "Rivtower Technologies.")]
+#[clap(version, author)]
 struct Opts {
     #[clap(subcommand)]
     subcmd: SubCommand,
@@ -43,9 +43,6 @@ enum SubCommand {
     /// run this service
     #[clap(name = "run")]
     Run(RunOpts),
-    /// create key in command line
-    #[clap(name = "create")]
-    Create(CreateOpts),
 }
 
 /// A subcommand for run
@@ -57,20 +54,6 @@ struct RunOpts {
     /// log config path
     #[clap(short = 'l', long = "log", default_value = "kms-log4rs.yaml")]
     log_file: String,
-}
-
-/// A subcommand for create
-#[derive(Parser)]
-struct CreateOpts {
-    /// Sets path of db file.
-    #[clap(short = 'd', long = "db")]
-    db_path: Option<String>,
-    /// Sets path of key_file.
-    #[clap(short = 'k', long = "key")]
-    key_file: Option<String>,
-    /// Chain config path
-    #[clap(short = 'c', long = "config", default_value = "config.toml")]
-    config_path: String,
 }
 
 fn main() {
@@ -88,9 +71,6 @@ fn main() {
         SubCommand::Run(opts) => {
             let fin = run(opts);
             warn!("Should not reach here {:?}", fin);
-        }
-        SubCommand::Create(opts) => {
-            create(opts);
         }
     }
 }
@@ -266,8 +246,6 @@ async fn run(opts: RunOpts) -> Result<(), StatusCode> {
 
     info!("db path of this service: {}", &config.db_path);
 
-    info!("key_file is {:?}", &config.db_key);
-
     let kms = Kms::new(config.db_path, config.db_key);
 
     let addr_str = format!("0.0.0.0:{}", config.kms_port);
@@ -289,31 +267,4 @@ async fn run(opts: RunOpts) -> Result<(), StatusCode> {
         })?;
 
     Ok(())
-}
-
-fn create(opts: CreateOpts) {
-    let config = KmsConfig::new(&opts.config_path);
-
-    let db_path = match opts.db_path {
-        Some(path) => path,
-        None => config.db_path,
-    };
-    info!("db path of this service: {}", &db_path);
-
-    let key_file = match opts.key_file {
-        Some(key) => key,
-        None => config.db_key,
-    };
-    info!("key_file is {:?}", &key_file);
-
-    let kms = Kms::new(db_path, key_file);
-    let (key_id, address) = kms
-        .generate_key_pair("create by cmd".to_owned())
-        .expect("generate_key_pair failed");
-    let mut address_hex = String::from("0x");
-    for v in address {
-        let v_str = format!("{:02x}", v);
-        address_hex.push_str(&v_str);
-    }
-    println!("key_id:{},address:{}", key_id, address_hex);
 }

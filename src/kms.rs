@@ -39,7 +39,7 @@ fn get_config(pool: Pool<SqliteConnectionManager>) -> Result<(Vec<u8>, String)> 
     if let Some(row) = rows.next()? {
         let password = row.get(0)?;
         let config_type = row.get(1)?;
-        info!("get old config: {:?} {}", password, config_type);
+        info!("get old config: type is {}", config_type);
         Ok((password, config_type))
     } else {
         info!("get config failed, create new config");
