@@ -14,6 +14,7 @@
 
 mod config;
 mod crypto;
+mod health_check;
 mod kms;
 
 use clap::Parser;
@@ -76,6 +77,7 @@ fn main() {
 }
 
 use cita_cloud_proto::common::{Empty, Hash, HashResponse};
+use cita_cloud_proto::health_check::health_server::HealthServer;
 use cita_cloud_proto::kms::{
     kms_service_server::KmsService, kms_service_server::KmsServiceServer, GenerateKeyPairRequest,
     GenerateKeyPairResponse, GetCryptoInfoResponse, HashDataRequest, RecoverSignatureRequest,
@@ -85,6 +87,7 @@ use tonic::{transport::Server, Request, Response, Status};
 
 use crate::config::KmsConfig;
 use crate::crypto::{check_transactions, ADDR_BYTES_LEN, SM2_SIGNATURE_BYTES_LEN};
+use crate::health_check::HealthCheckServer;
 use crate::kms::Kms;
 use cita_cloud_proto::blockchain::RawTransactions;
 use status_code::StatusCode;
@@ -259,6 +262,7 @@ async fn run(opts: RunOpts) -> Result<(), StatusCode> {
         .add_service(KmsServiceServer::new(KmsServer::new(Arc::new(
             RwLock::new(kms),
         ))))
+        .add_service(HealthServer::new(HealthCheckServer {}))
         .serve(addr)
         .await
         .map_err(|e| {

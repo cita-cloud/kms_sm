@@ -31,6 +31,9 @@ rayon = "1.5"
 serde = "1.0.126"
 serde_derive = "1.0.126"
 
+[patch."https://github.com/cita-cloud/cita_cloud_proto"]
+cita_cloud_proto = { git = "https://github.com/rink1969/cita_cloud_proto.git", branch = "health_check" }
+
 [profile.release.package."*"]
 # Set the default for dependencies.
 debug = 0
