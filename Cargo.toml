@@ -1,9 +1,9 @@
 [package]
 name = "kms"
-version = "6.3.3"
+version = "6.4.0"
 authors = ["Rivtower Technologies <contact@rivtower.com>"]
 license = "Apache-2.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,9 +30,6 @@ rand = "0.8"
 rayon = "1.5"
 serde = "1.0.126"
 serde_derive = "1.0.126"
-
-[patch."https://github.com/cita-cloud/cita_cloud_proto"]
-cita_cloud_proto = { git = "https://github.com/rink1969/cita_cloud_proto.git", branch = "health_check" }
 
 [profile.release.package."*"]
 # Set the default for dependencies.
