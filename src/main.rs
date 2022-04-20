@@ -18,14 +18,7 @@ mod health_check;
 mod kms;
 
 use clap::Parser;
-use git_version::git_version;
 use log::{debug, info, warn};
-
-const GIT_VERSION: &str = git_version!(
-    args = ["--tags", "--always", "--dirty=-modified"],
-    fallback = "unknown"
-);
-const GIT_HOMEPAGE: &str = "https://github.com/cita-cloud/kms_sm";
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
@@ -38,9 +31,6 @@ struct Opts {
 
 #[derive(Parser)]
 enum SubCommand {
-    /// print information from git
-    #[clap(name = "git")]
-    GitInfo,
     /// run this service
     #[clap(name = "run")]
     Run(RunOpts),
@@ -65,10 +55,6 @@ fn main() {
     // You can handle information about subcommands by requesting their matches by name
     // (as below), requesting just the name used, or both at the same time
     match opts.subcmd {
-        SubCommand::GitInfo => {
-            println!("git version: {}", GIT_VERSION);
-            println!("homepage: {}", GIT_HOMEPAGE);
-        }
         SubCommand::Run(opts) => {
             let fin = run(opts);
             warn!("Should not reach here {:?}", fin);
