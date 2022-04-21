@@ -8,28 +8,27 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.14"
-log4rs = { version = "1.0", features = ["default", "gzip"] }
-clap = { version = "3.0.14", features = ["derive"] }
-git-version = "0.3.5"
-tonic = "0.5.2"
-prost = "0.8.0"
-tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+log4rs = { version = "1.0", features = ["gzip"] }
+clap = { version = "3.1", features = ["derive"] }
+tonic = "0.5"
+prost = "0.8"
+tokio = { version = "1.17", features = ["full"] }
 hex = "0.4"
 
 cloud-util = { git = "https://github.com/cita-cloud/cloud-util.git" }
 cita_cloud_proto = { git = "https://github.com/cita-cloud/cita_cloud_proto.git" }
 status_code = { package = "cloud-code", git = "https://github.com/cita-cloud/status_code.git" }
 
-r2d2 = "0.8.9"
-r2d2_sqlite = "0.18.0"
-rusqlite = "0.25.3"
-libsm = "0.4.0"
-efficient-sm2 = "0.1.5"
+r2d2 = "0.8"
+r2d2_sqlite = "0.20"
+rusqlite = "0.27"
+libsm = "0.4"
+efficient-sm2 = "0.1"
 rand = "0.8"
 rayon = "1.5"
-serde = "1.0.126"
-serde_derive = "1.0.126"
+serde = "1.0"
+serde_derive = "1.0"
 
 [profile.release.package."*"]
 # Set the default for dependencies.
