@@ -119,10 +119,16 @@ impl Kms {
     ) -> Result<(u64, Vec<u8>), StatusCode> {
         let pubkey = sk2pk(privkey);
         let addr = pk2address(pubkey.as_slice());
-        let encrypted_sk = encrypt(&self.password, privkey);
-
-        self.insert_account(pubkey, encrypted_sk, description)
-            .map(|key_id| (key_id, addr))
+        let encrypted_sk_result = encrypt(&self.password, privkey);
+        match encrypted_sk_result {
+            Err(err) => {
+                warn!("encrypt password failed: {:?}", err);
+                Err(StatusCode::InsertAccountError)
+            }
+            Ok(encrypted_sk) => self
+                .insert_account(pubkey, encrypted_sk, description)
+                .map(|key_id| (key_id, addr)),
+        }
     }
 
     fn insert_account(
@@ -151,12 +157,19 @@ impl Kms {
 
     pub fn generate_key_pair(&self, description: String) -> Result<(u64, Vec<u8>), StatusCode> {
         let (pk, sk) = generate_keypair()?;
-        let encrypted_sk = encrypt(&self.password, &sk);
-        self.insert_account(pk.clone(), encrypted_sk, description)
-            .map(|key_id| {
-                let address = pk2address(&pk);
-                (key_id, address)
-            })
+        let encrypted_sk_result = encrypt(&self.password, &sk);
+        match encrypted_sk_result {
+            Err(err) => {
+                warn!("encrypt password failed: {:?}", err);
+                Err(StatusCode::InsertAccountError)
+            }
+            Ok(encrypted_sk) => self
+                .insert_account(pk.clone(), encrypted_sk, description)
+                .map(|key_id| {
+                    let address = pk2address(&pk);
+                    (key_id, address)
+                }),
+        }
     }
 
     pub fn hash_date(&self, data: &[u8]) -> Vec<u8> {
@@ -177,7 +190,13 @@ impl Kms {
             let encrypted_sk = row.get(1)?;
 
             let privkey = decrypt(&self.password, encrypted_sk);
-            Ok((pubkey, privkey))
+            match privkey {
+                Ok(r) => Ok((pubkey, r)),
+                Err(err) => {
+                    warn!("decrypt password: {:?} failed: {:?}", &self.password, err);
+                    Err(Error::QueryReturnedNoRows)
+                }
+            }
         } else {
             Err(Error::QueryReturnedNoRows)
         }
