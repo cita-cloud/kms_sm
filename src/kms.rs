@@ -193,7 +193,7 @@ impl Kms {
             match privkey {
                 Ok(r) => Ok((pubkey, r)),
                 Err(err) => {
-                    warn!("decrypt password: {:?} failed: {:?}", &self.password, err);
+                    warn!("decrypt password failed: {:?}", err);
                     Err(Error::QueryReturnedNoRows)
                 }
             }
