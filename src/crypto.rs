@@ -15,22 +15,23 @@
 use cita_cloud_proto::blockchain::raw_transaction::Tx::{NormalTx, UtxoTx};
 use cita_cloud_proto::blockchain::{RawTransaction, RawTransactions};
 use cloud_util::common::get_tx_hash;
+use libsm::sm4::error::Sm4Result;
 use prost::Message;
 use rand::RngCore;
 use status_code::StatusCode;
 
-pub fn encrypt(password_hash: &[u8], data: &[u8]) -> Vec<u8> {
+pub fn encrypt(password_hash: &[u8], data: &[u8]) -> Sm4Result<Vec<u8>> {
     let (key, iv) = password_hash.split_at(16);
-    let cipher = libsm::sm4::Cipher::new(key, libsm::sm4::Mode::Cfb);
+    let cipher = libsm::sm4::Cipher::new(key, libsm::sm4::Mode::Cfb)?;
 
     cipher.encrypt(data, iv)
 }
 
-pub fn decrypt(password_hash: &[u8], data: Vec<u8>) -> Vec<u8> {
+pub fn decrypt(password_hash: &[u8], data: Vec<u8>) -> Sm4Result<Vec<u8>> {
     let key = password_hash[0..16].to_owned();
     let iv = password_hash[16..32].to_owned();
 
-    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cfb);
+    let cipher = libsm::sm4::Cipher::new(&key, libsm::sm4::Mode::Cfb)?;
 
     cipher.decrypt(&data, &iv)
 }
